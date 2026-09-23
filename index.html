@@ -1259,8 +1259,14 @@ function SpeakButton({ text }){
   const speak = (e) => {
     e.stopPropagation();
     if (!('speechSynthesis' in window)) return;
+    const voices = speechSynthesis.getVoices();
+    const chineseVoice = voices.find(voice => voice.lang.toLowerCase() === 'zh-cn')
+      || voices.find(voice => voice.lang.toLowerCase().startsWith('zh'));
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'zh-CN'; u.rate = 0.85;
+    u.lang = 'zh-CN';
+    u.voice = chineseVoice || null;
+    u.rate = 0.50;
+    u.pitch = 1;
     u.onend = () => setTalking(false);
     u.onerror = () => setTalking(false);
     setTalking(true);
@@ -1611,6 +1617,44 @@ function Completion({ level, lesson, total, seenCount, onRestart }){
   );
 }
 
+function VocabularySection({ words, hidePinyin, onTogglePinyin }){
+  return (
+    <section className="w-full mb-6 sm:mb-8" aria-labelledby="vocabulary-heading">
+      <div className="flex items-end justify-between gap-3 mb-3">
+        <div>
+          <p className="eyebrow">Lesson vocabulary</p>
+          <h2 id="vocabulary-heading" className="mt-1 font-serif text-2xl font-semibold tracking-tight">
+            Vocabulary <span className="font-hanzi text-base text-ink/40 dark:text-white/40">词汇</span>
+          </h2>
+        </div>
+        <button type="button" onClick={onTogglePinyin} aria-pressed={hidePinyin}
+          className={'btn-ghost h-9 px-3 text-xs' + (hidePinyin ? ' text-jade border-jade/50' : '')}>
+          {hidePinyin ? 'Show pinyin' : 'Hide pinyin'}
+        </button>
+      </div>
+
+      {/* One word per row, numbered */}
+      <div className="space-y-2">
+        {words.map((word, i) => (
+          <div key={word.id}
+            className="flex items-center gap-3 sm:gap-4 rounded-xl border border-ink/10 dark:border-white/10 bg-white dark:bg-night-card px-3.5 sm:px-4 py-3">
+            <span className="w-7 shrink-0 text-right text-xs font-bold tabular-nums text-ink/35 dark:text-white/35">
+              {i + 1}
+            </span>
+            <span className="font-kai text-2xl leading-none shrink-0 w-28 sm:w-32">{word.hanzi}</span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-ink dark:text-white">{word.english}</div>
+              <div className={'mt-0.5 h-5 text-xs font-serif italic text-jade ' + (hidePinyin ? 'select-none text-transparent' : '')}
+                aria-hidden={hidePinyin}>{word.pinyin}</div>
+            </div>
+            <SpeakButton text={word.hanzi}/>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function LessonPage({ level, lesson }){
   const words = lesson.words;
   const total = words.length;
@@ -1619,6 +1663,8 @@ function LessonPage({ level, lesson }){
   const [pos, setPos]         = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [done, setDone]       = useState(false);
+  const [hidePinyin, setHidePinyin] = useState(false);
+  const [activeTab, setActiveTab] = useState('vocabulary');
   const [seen, setSeen]       = useState(() => new Set(progressStore.seenFor(level.id, lesson.id)));
 
   const word = words[order[pos]];
@@ -1656,6 +1702,10 @@ function LessonPage({ level, lesson }){
     }
     setShuffled(!shuffled);
     setPos(0); setDone(false); setFlipped(false);
+  };
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    setFlipped(false);
   };
 
   const actionsRef = useRef({ go, flip });
@@ -1701,16 +1751,35 @@ function LessonPage({ level, lesson }){
 
         <span className="sr-only" aria-live="polite">Word {pos + 1} of {total}: {word.hanzi}</span>
 
-        {/* Card / completion */}
-        <div className="flex-1 flex items-center justify-center py-6 sm:py-8">
-          {done
-            ? <Completion level={level} lesson={lesson} total={total} seenCount={seen.size} onRestart={restart}/>
-            : <Flashcard word={word} pos={pos} total={total} flipped={flipped} onFlip={flip}/>}
+        <div className="mt-5 mb-2 flex border-b border-ink/10 dark:border-white/10" role="tablist" aria-label="Lesson study mode">
+          <button type="button" role="tab" aria-selected={activeTab === 'vocabulary'}
+            onClick={() => switchTab('vocabulary')}
+            className={'px-1 pb-3 mr-5 text-sm font-semibold border-b-2 transition-colors ' +
+              (activeTab === 'vocabulary' ? 'border-jade text-jade' : 'border-transparent text-ink/45 dark:text-white/45 hover:text-ink dark:hover:text-white')}>
+            Vocabulary
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === 'flashcards'}
+            onClick={() => switchTab('flashcards')}
+            className={'px-1 pb-3 text-sm font-semibold border-b-2 transition-colors ' +
+              (activeTab === 'flashcards' ? 'border-jade text-jade' : 'border-transparent text-ink/45 dark:text-white/45 hover:text-ink dark:hover:text-white')}>
+            Flashcards
+          </button>
         </div>
 
-        {/* Controls */}
-        {!done && (
-          <div className="w-full max-w-[24rem] mx-auto">
+        {activeTab === 'vocabulary' ? (
+          <VocabularySection words={words} hidePinyin={hidePinyin} onTogglePinyin={() => setHidePinyin(value => !value)}/>
+        ) : (
+          <>
+            {/* Card / completion */}
+            <div className="flex-1 flex items-center justify-center py-6 sm:py-8">
+              {done
+                ? <Completion level={level} lesson={lesson} total={total} seenCount={seen.size} onRestart={restart}/>
+                : <Flashcard word={word} pos={pos} total={total} flipped={flipped} onFlip={flip}/>}
+            </div>
+
+            {/* Controls */}
+            {!done && (
+              <div className="w-full max-w-[24rem] mx-auto">
             <div className="flex gap-1">
               {order.map((wi, i) => {
                 const isSeen = seen.has(words[wi].id);
@@ -1748,7 +1817,9 @@ function LessonPage({ level, lesson }){
             <p className="mt-4 text-center text-[11px] text-ink/35 dark:text-white/35">
               {seen.size} of {total} reviewed · keyboard: arrows navigate, space flips
             </p>
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
