@@ -1642,10 +1642,13 @@ function VocabularySection({ words, hidePinyin, onTogglePinyin }){
               {i + 1}
             </span>
             <span className="font-kai text-2xl leading-none shrink-0 w-28 sm:w-32">{word.hanzi}</span>
+            <span className={'shrink-0 w-20 sm:w-24 text-sm font-serif italic text-jade ' + (hidePinyin ? 'select-none text-transparent' : '')}
+              aria-hidden={hidePinyin}>{word.pinyin}</span>
+            <span className="shrink-0 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.1em] sm:tracking-[0.15em] text-ink/45 dark:text-white/45 border border-ink/15 dark:border-white/15 rounded-full px-2 sm:px-2.5 py-1 whitespace-nowrap">
+              {word.pos}
+            </span>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold text-ink dark:text-white">{word.english}</div>
-              <div className={'mt-0.5 h-5 text-xs font-serif italic text-jade ' + (hidePinyin ? 'select-none text-transparent' : '')}
-                aria-hidden={hidePinyin}>{word.pinyin}</div>
             </div>
             <SpeakButton text={word.hanzi}/>
           </div>
